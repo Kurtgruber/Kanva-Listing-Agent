@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kanvas & Co. — Listing Generation Agent v1.1 (recorded walkthrough)</title>
+<style>
+:root{
+  --ink:#1F2544; --muted:#5B6275; --paper:#FFFFFF; --panel:#F3F5F9; --line:#D9DEE8;
+  --agent:#C8902E; --agent-t:#FBF3E4; --human:#2E7D57; --human-t:#E8F3EC;
+  --task:#6B7280; --task-t:#F1F2F4; --block:#B42318; --block-t:#FDECEA; --flag:#A15C07; --flag-t:#FFF4E0;
+  --sans: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#E6E9F2;--muted:#A3AABB;--paper:#12151F;--panel:#1B2030;--line:#2F3547;--agent-t:#2E2616;--human-t:#15291F;--task-t:#1E222C;--block-t:#3A1714;--flag-t:#33260F}}
+:root[data-theme="dark"]{--ink:#E6E9F2;--muted:#A3AABB;--paper:#12151F;--panel:#1B2030;--line:#2F3547;--agent-t:#2E2616;--human-t:#15291F;--task-t:#1E222C;--block-t:#3A1714;--flag-t:#33260F}
+textarea,pre{background:var(--panel)!important;color:var(--ink)}
+button.primary{background:var(--ink);color:var(--paper)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 24px 64px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:14px}
+h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+.runid{font:13px var(--mono);color:var(--muted);text-align:right}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 8px;align-items:center}
+button{font:600 14px var(--sans);border-radius:6px;padding:9px 14px;cursor:pointer;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink)}
+button.primary{background:var(--ink);color:#fff}
+button.sel,.upl.sel{background:var(--agent);border-color:var(--agent);border-style:solid;color:#fff}
+.panel.flash{animation:flash 1.2s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 4px var(--agent)}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.panel.flash{animation:none;outline:3px solid var(--agent)}}
+.upl{font:600 14px var(--sans);border-radius:6px;padding:9px 14px;cursor:pointer;border:1.5px dashed var(--ink)}
+.upl:focus-within,.upl:hover{background:var(--panel)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--agent);outline-offset:2px}
+.loaded{font-size:13px;color:var(--muted);margin-left:6px}
+.replay{margin:16px 0 0;border:2px solid var(--agent);background:var(--agent-t);border-radius:10px;padding:12px 16px;font-size:14px}
+.replay a{color:var(--ink);font-weight:700}
+.replay ol{margin:6px 0 0;padding-left:20px}.replay li{margin:2px 0}
+.ver{display:inline-block;font:700 13px var(--sans);background:var(--agent);color:#fff;border-radius:999px;padding:3px 10px;vertical-align:middle;margin-left:6px}
+.changes{margin-top:8px;font-size:13.5px;color:var(--muted);max-width:820px}
+.changes ul{margin:6px 0 0;padding-left:18px}.changes li{margin:3px 0}
+.adv{background:var(--flag-t);color:var(--flag);border-radius:6px;padding:6px 10px;margin:6px 0;font-size:13.5px;font-weight:600}
+
+/* Pipeline strip: the memorable element */
+.pipe{display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:18px 0 28px;position:relative}
+.node{position:relative;margin-right:26px;border:2px solid var(--task);background:var(--task-t);border-radius:10px;padding:12px 12px 10px;min-height:96px;cursor:pointer}
+.node:last-child{margin-right:0}
+.node:not(:last-child)::after{content:"";position:absolute;right:-26px;top:50%;width:26px;height:2px;background:var(--ink)}
+.node:not(:last-child)::before{content:"";position:absolute;right:-27px;top:calc(50% - 5px);border-left:8px solid var(--ink);border-top:6px solid transparent;border-bottom:6px solid transparent}
+.node.agent{border-color:var(--agent);background:var(--agent-t)}
+.node.guard{border-color:var(--human);background:var(--human-t)}
+.node .n{font:12px var(--mono);color:var(--muted)}
+.node .t{font-weight:700;font-size:14px;line-height:1.25;margin:2px 0 4px}
+.node .k{font-size:12px;color:var(--muted)}
+.node .st{position:absolute;right:10px;top:10px;width:12px;height:12px;border-radius:50%;background:#C9CED8}
+.node.run .st{background:var(--agent);animation:pulse 1s infinite}
+.node.done .st{background:var(--human)}
+.node.err .st{background:var(--block)}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.node.run .st{animation:none}}
+
+section.panel{border:1px solid var(--line);border-radius:10px;margin:0 0 22px;overflow:hidden}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.ph h2{font-size:17px;margin:0}
+.ph .meta{font:12px var(--mono);color:var(--muted)}
+.pb{padding:16px}
+.pb p.note{color:var(--muted);margin:0 0 10px;font-size:14px}
+textarea{width:100%;min-height:300px;font:12.5px/1.45 var(--mono);border:1px solid var(--line);border-radius:6px;padding:12px;color:var(--ink);background:#FBFCFE}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12.5px/1.45 var(--mono);background:#FBFCFE;border:1px solid var(--line);border-radius:6px;padding:12px;max-height:520px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{width:210px;font-weight:600;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:860px){.two{grid-template-columns:1fr}.pipe{grid-template-columns:1fr}.node{margin:0 0 14px}.node::after,.node::before{display:none}}
+.pill{display:inline-block;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px}
+.pill.ok{background:var(--human-t);color:var(--human)}
+.pill.flag{background:var(--flag-t);color:var(--flag)}
+.pill.block{background:var(--block-t);color:var(--block)}
+.hit{background:var(--block-t);color:var(--block);border-radius:4px;padding:1px 6px;margin:2px 4px 2px 0;display:inline-block;font:12.5px var(--mono)}
+.warn{background:var(--flag-t);color:var(--flag);border-radius:4px;padding:1px 6px;margin:2px 4px 2px 0;display:inline-block;font:12.5px var(--mono)}
+.checks li{margin:3px 0}
+.pass{color:var(--human);font-weight:700}.fail{color:var(--block);font-weight:700}
+.listing{border:1px solid var(--line);border-radius:8px;padding:18px}
+.listing h3{font-size:19px;line-height:1.35;margin:0 0 10px}
+.listing ul{padding-left:20px;margin:0 0 12px}
+.listing li{margin:0 0 6px}
+.listing .desc{white-space:pre-wrap;margin:0 0 12px}
+.artab th{width:170px}.artab td{padding:6px 10px}
+.ar{direction:rtl;text-align:right;background:var(--panel);border-radius:6px;padding:10px 12px;font-size:15px}
+[contenteditable=true]{outline:2px dashed var(--agent);outline-offset:4px}
+.review{border:2px solid var(--human);background:var(--human-t);border-radius:10px;padding:16px}
+.review h3{margin:0 0 6px;font-size:16px}
+.review .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.review input{font:14px var(--sans);padding:8px 10px;border:1px solid var(--line);border-radius:6px;min-width:240px}
+.btn-ok{border-color:var(--human);color:var(--human)}
+.btn-rej{border-color:var(--block);color:var(--block)}
+.risk{display:inline-block;font-weight:700;font-size:12px;padding:2px 8px;border-radius:999px}
+.risk.r3{background:var(--block-t);color:var(--block)}.risk.r2{background:var(--flag-t);color:var(--flag)}.risk.r1{background:var(--task-t);color:var(--task)}
+.gates{list-style:none;padding:0;margin:12px 0 0;font-size:14px}
+.gates li{margin:3px 0}
+.dec{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.dec button{padding:4px 9px;font-size:12.5px}
+.dec input{font:13px var(--sans);padding:4px 6px;border:1px solid var(--line);border-radius:5px;min-width:160px}
+.small{font-size:12px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--ink);font-weight:600}
+.log{font:12.5px/1.6 var(--mono);color:var(--ink)}
+.log div{border-bottom:1px dotted var(--line);padding:2px 0}
+.empty{color:var(--muted);font-style:italic}
+.error{color:var(--block);font-weight:600}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Listing Generation Agent · Stage 2 prototype <span class="ver">v1.1</span></h1>
+      <p class="sub">Kanvas &amp; Co. New Product Launch workflow. One product brief in, one Amazon AE listing out, checked before a human sees it.</p>
+
+    </div>
+    <div class="runid" id="runid">No run yet</div>
+  </header>
+  <div class="replay"><strong>Recorded walkthrough.</strong> This page replays the real outputs from my prototype runs on 5 November 2026 (prototype v1.1, prompt v2.1), so it works without signing in or calling an AI model. Every check, gate, Legal step and log entry runs live in your browser on those recorded outputs. The live agent is at <a href="https://claude.ai/artifact/9yS55YPg1vsSAFtnwvovT5" target="_blank" rel="noopener">claude.ai</a> (Claude sign-in needed).
+    <ol>
+      <li><strong>Golden brief:</strong> Load golden brief → Run workflow. In Node 4b, confirm “handmade” with a source (the brief says “hand-thrown”) → Approve.</li>
+      <li><strong>Edge case:</strong> Load edge case → Run workflow. In Node 4, refer “Calm” (reason) and “clinically proven” (reason + evidence), then Confirm all remaining removals → Send to Legal.</li>
+      <li><strong>Legal:</strong> in the Legal panel, approve “calm”, decline “clinically proven” → Submit. Pass 2 re-runs; Approve stays locked (unsupported facts, missing dimensions) → Reject.</li>
+    </ol></div>
+
+  <div class="controls">
+    <button id="loadGolden" data-base="Load golden brief (Mira planter set)">Load golden brief (Mira planter set)</button>
+    <button id="loadEdge" data-base="Load edge case (Cedarwood candle)">Load edge case (Cedarwood candle)</button>
+    <label class="upl" id="uplLabel" for="file">Upload a brief (.docx, .pdf, .txt, .json)</label><input type="file" id="file" accept=".docx,.pdf,.txt,.md,.json" hidden>
+    <button id="run" class="primary">Run workflow</button>
+    <span class="loaded" id="loaded"></span>
+  </div>
+
+  <div class="pipe" id="pipe">
+    <div class="node" data-go="p1"><span class="st"></span><div class="n">Node 1</div><div class="t">Product brief in</div><div class="k">Trigger (webhook equivalent)</div></div>
+    <div class="node" data-go="p2"><span class="st"></span><div class="n">Node 2</div><div class="t">Parse brief fields</div><div class="k">Deterministic</div></div>
+    <div class="node agent" data-go="p3"><span class="st"></span><div class="n">Node 3</div><div class="t">Listing Generation Agent</div><div class="k">AI agent (LLM)</div></div>
+    <div class="node guard" data-go="p4"><span class="st"></span><div class="n">Node 4</div><div class="t">Compliance check</div><div class="k">Detection guardrail</div></div>
+    <div class="node guard" data-go="p4b"><span class="st"></span><div class="n">Node 4b</div><div class="t">Fact-grounding check</div><div class="k">Detection guardrail</div></div>
+    <div class="node" data-go="p5"><span class="st"></span><div class="n">Node 5</div><div class="t">Return result</div><div class="k">To Stage 4 merchandiser review</div></div>
+  </div>
+
+  <section class="panel" id="p1">
+    <div class="ph"><h2>Node 1 · Product brief in</h2><span class="meta" id="m1">input payload (JSON)</span></div>
+    <div class="pb">
+      <p class="note" id="srcNote">The approved brief (file 10 or 11, or any uploaded brief), converted to the JSON payload shape from the n8n quickstart, extended with the claims, substantiation and variation fields the agent needs. Editable.</p>
+      <textarea id="payload" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <section class="panel" id="p2">
+    <div class="ph"><h2>Node 2 · Parse brief fields</h2><span class="meta" id="m2">waiting</span></div>
+    <div class="pb"><div id="parsed"><span class="empty">Run the workflow to parse the brief.</span></div></div>
+  </section>
+
+  <section class="panel" id="p3">
+    <div class="ph"><h2>Node 3 · Listing Generation Agent</h2><span class="meta" id="m3">waiting</span></div>
+    <div class="pb">
+      <div class="two">
+        <div>
+          <p class="note"><strong>Agent configuration.</strong> Model, settings and the full system prompt (brand voice, Amazon AE rules, hard rules, output format).</p>
+          <pre id="config"></pre>
+        </div>
+        <div>
+          <p class="note"><strong>Raw agent output</strong> (JSON returned by the model).</p>
+          <pre id="raw">No output yet.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="p4">
+    <div class="ph"><h2>Node 4 · Compliance check (detection guardrail)</h2><span class="meta" id="m4">waiting</span></div>
+    <div class="pb"><div id="compliance"><span class="empty">Runs on every agent output before a person sees it.</span></div></div>
+  </section>
+
+  <section class="panel" id="p4b">
+    <div class="ph"><h2>Node 4b · Fact-grounding check (detection guardrail)</h2><span class="meta" id="m4b">waiting</span></div>
+    <div class="pb"><p class="note">Every factual statement in the draft (materials, scent notes, origin, how it is made, dimensions, weights, care, packaging, variation) must trace back to the brief. The keyword check in Node 4 catches prohibited language; this catches invented facts.</p><div id="grounding"><span class="empty">Runs after Node 4, before a person sees the draft.</span></div></div>
+  </section>
+
+  <section class="panel" id="p5">
+    <div class="ph"><h2>Node 5 · Return result → Stage 4 merchandiser review</h2><span class="meta" id="m5">waiting</span></div>
+    <div class="pb">
+      <div class="two">
+        <div>
+          <p class="note"><strong>Generated Amazon AE listing</strong></p>
+          <div id="listing"><span class="empty">The draft appears here.</span></div>
+        </div>
+        <div>
+          <div class="review" id="review">
+            <h3>Stage 4 · Merchandiser review</h3>
+            <p class="note" id="reviewNote">Approve, edit or reject the draft. Blocked drafts cannot be approved: edit or reject, and escalate claims to Legal.</p>
+            <div class="row"><label for="reviewer">Reviewer</label><input id="reviewer" value="Anjali Sharma, Merchandiser (AE)"></div>
+            <ul class="gates" id="gates"></ul>
+            <div class="row">
+              <button id="approve" class="btn-ok" disabled>Approve</button>
+              <button id="hold" disabled>Send to Legal</button>
+              <button id="edit" disabled>Edit draft</button>
+              <button id="reject" class="btn-rej" disabled>Reject</button>
+            </div>
+            <div id="decision" style="margin-top:10px"></div>
+          </div>
+          <p class="note" style="margin-top:16px"><strong>Response body</strong> (what the workflow returns)</p>
+          <pre id="final">No result yet.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="legal">
+    <div class="ph"><h2>Legal review record · Stage 4 escalation</h2><span class="meta">for Legal (Priya / Sneha)</span></div>
+    <div class="pb">
+      <div id="legalNow"><span class="empty">The Legal view of the current run appears here after the workflow runs.</span></div>
+      <p class="note" style="margin-top:18px"><strong>All runs</strong>: every run and its final decision, kept in this browser so Legal can check nothing was approved while a Legal hold applied.</p>
+      <div id="legalLog"></div>
+      <div class="row" style="margin-top:10px"><button id="clearLog" style="padding:5px 10px;font-size:13px">Clear log</button></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><h2>Execution log</h2><span class="meta">audit trail for this session <button id="dl" style="margin-left:10px;padding:5px 10px;font-size:13px" disabled>Download run record</button></span></div>
+    <div class="pb"><div class="log" id="log"><div class="empty">Nothing has run yet.</div></div></div>
+  </section>
+</div>
+
+<script>
+/* Replay shim: stands in for the claude.ai "sample" capability with the recorded outputs from 5 Nov 2026. */
+const REC = {"listings": {"golden": {"title": "Kanvas & Co. Mira Terracotta Planter Set of 3, Hand-Thrown Planters in Warm Ochre, Soft Charcoal and Pale Sand, Made in Jaipur, India", "bullets": ["Three sizes that layer together: Small 12 x 12 x 14 cm, Medium 16 x 16 x 18 cm and Large 22 x 22 x 24 cm, so you can build a display at different heights on a shelf, sill or table.", "Hand-thrown terracotta, made in Jaipur, India. Because each piece is thrown by hand, no two are identical and sizes vary by about ±2 cm.", "Three colours in the set: Warm Ochre, Soft Charcoal and Pale Sand. Glaze tone varies between pieces by design, so your set will not match the photos exactly.", "Made for everyday use: interior food-grade sealant for water retention, a drainage hole with cork plug, and a cork pad included to protect furniture surfaces.", "Simple care: wipe the interior dry between waterings. Suitable for brief outdoor shelter only, so avoid prolonged exposure to direct rain. Arrives in a recycled corrugated set-box."], "description": "The Mira Terracotta Planter Set brings together three hand-thrown terracotta planters in Warm Ochre, Soft Charcoal and Pale Sand. They are made in Jaipur, India, and are meant to be used every day.<br><br>The set includes a Small planter (12 x 12 x 14 cm, 0.6 kg), a Medium planter (16 x 16 x 18 cm, 1.1 kg) and a Large planter (22 x 22 x 24 cm, 1.9 kg). The total set weighs 3.6 kg. The three sizes sit well together for a layered arrangement, or you can place them in different rooms.<br><br>Each planter has an interior food-grade sealant for water retention and a drainage hole with a cork plug. A cork pad is included to protect furniture surfaces.<br><br>A note on handmade variation: these planters are thrown by hand, so sizes vary by about ±2 cm. Glaze tone also varies between pieces in a set. This is intentional, and it means every set is slightly different.<br><br>Care: wipe the interior dry between waterings. The planters are suitable for brief outdoor shelter only and are not intended to stay outside permanently, so avoid prolonged exposure to direct rain.<br><br>Packaging: the set arrives in a recycled corrugated set-box, with each planter wrapped in unbleached jute paper.", "arabic_key_attributes": {"product_type": "طقم أحواض نباتات من الطين المحروق (٣ قطع)", "material": "طين محروق (تيراكوتا) مشكّل يدوياً على عجلة الفخار", "country_of_origin": "صُنع في جايبور، الهند"}, "gaps": ["Firing temperature (980°C) appears in the materials field but is not covered by the substantiation quote ('Hand-thrown terracotta, fired in Jaipur'), so it was left out. Confirm documentation if it should be included.", "The brief does not say whether the glaze is food-safe or whether the planters are suitable for edible plants, so no such statement was made. Only the interior sealant is described as food-grade.", "Arabic translations are a first draft and need review by a native Arabic speaker."], "removed_claims": ["'Made in a 200-year-old workshop' (key selling point 3): no substantiation on file for the workshop's age.", "'Potters working in a tradition that pre-dates electricity' (positioning): no substantiation on file.", "'Single supplier with chain-of-custody documentation' (key selling point 3): the substantiation notes limit sustainability claims to recycled packaging, and chain-of-custody covers the planters only, so it was omitted to avoid implying a broader claim.", "Firing at 980°C: not included in the substantiated material claim, so omitted (see gaps)."]}, "candle1": {"title": "Kanvas & Co. Cedarwood + Eucalyptus Candle, Soy Wax Blend with Cotton Wick in Glass Jar, Off-White, Made in India", "bullets": ["Cedarwood and eucalyptus scent notes, with a third note the brief does not name, from an essential oil blend, so the room carries a woody, fresh character when the candle is lit", "Soy wax blend with a cotton wick, poured into a glass jar and finished with a kraft paper sleeve, so the materials are easy to see and handle", "Off-white colour only, so it sits well in most rooms and beside the things you already own", "Made in Bengaluru, India, and weighs approximately 0.4 kg, so you know what to expect when it arrives", "Simple safe-use care: burn for a maximum of 4 hours at a time, trim the wick before each use, and never leave it unattended"], "description": "The Cedarwood + Eucalyptus Candle from Kanvas & Co. is made in Bengaluru, India, with a soy wax blend and a cotton wick. It comes in a glass jar with a kraft paper sleeve.<br><br>The scent comes from an essential oil blend built around cedarwood and eucalyptus, with a third note we have not named here. Expect a woody, fresh character.<br><br>The candle is off-white, and this is the only colour available. It weighs approximately 0.4 kg.<br><br>Care and safe use:<br>Burn for a maximum of 4 hours at a time.<br>Trim the wick before each use.<br>Do not leave the candle unattended while it is burning.", "arabic_key_attributes": {"product_type": "شمعة معطرة", "material": "مزيج شمع الصويا، فتيل قطني، مزيج زيوت عطرية، برطمان زجاجي، غلاف من ورق الكرافت", "country_of_origin": "صنع في بنغالور، الهند"}, "gaps": ["Dimensions are not specified and need to be confirmed with the supplier", "Scent profile: the third essential oil note is unspecified", "Burn time for the whole candle is not stated in the brief", "No substantiation documents are on file for any material or sustainability claim, so none were used", "Compliance sign-off is outstanding (Priya / Sneha have not reviewed this brief)", "Making method (for example hand-poured) and batch-to-batch variation are not stated, so nothing was asserted about them", "HS code 3406.00 is marked as assumed and needs confirming before listing"], "removed_claims": ["Product name word 'Calm' removed from the title and listing because it implies a wellness effect; refer to Legal", "'Clinically calming' (campaign hook) removed: wellness claim, no certification", "'Your nightly reset' (campaign hook) removed: implies a wellness effect", "'A calming candle designed to help you unwind, reduce stress, and improve sleep quality' (positioning) removed: prohibited wellness and therapeutic claims", "'Clinically proven to reduce stress' removed: prohibited claim, based only on a supplier's marketing materials", "'Improves sleep quality' removed: prohibited wellness claim with no substantiation", "'100% natural soy wax' removed: prohibited phrase, supplier verbal confirmation only, no document on file", "'Eco-friendly soy wax' removed: prohibited term, no chain-of-custody documentation", "Merchandiser note 'previous candle launches used similar language' not relied on: it is not substantiation and the earlier launches should be checked"]}, "candle2": {"title": "Kanvas & Co. Cedarwood + Eucalyptus Calm Candle, Soy Wax Blend with Cotton Wick in Glass Jar, Off-White", "bullets": ["Scented with an essential oil blend that includes cedarwood and eucalyptus, so the scent in the room comes from the oils named on the label.", "Made with a soy wax blend and a cotton wick, poured into a glass jar that you can keep once the candle is finished.", "Comes in a kraft paper sleeve and an off-white colour that sits well in most rooms.", "Clear care guidance: burn for a maximum of 4 hours at a time and trim the wick between burns.", "Made in Bengaluru, India. Approximate weight 0.4 kg. Never leave a burning candle unattended."], "description": "The Cedarwood + Eucalyptus Calm Candle is made in Bengaluru, India. It is scented with an essential oil blend that includes cedarwood and eucalyptus.<br><br>The candle is made from a soy wax blend with a cotton wick. It comes in a glass jar with a kraft paper sleeve, and the wax is off-white. The approximate weight is 0.4 kg.<br><br>How to burn it safely: burn for a maximum of 4 hours at a time, trim the wick, and never leave the candle unattended.", "arabic_key_attributes": {"product_type": "شمعة معطرة", "material": "مزيج شمع الصويا، فتيل قطني، مزيج زيوت عطرية، جرة زجاجية، غلاف من ورق الكرافت", "country_of_origin": "صُنع في بنغالورو، الهند"}, "gaps": ["Dimensions are not specified (to be confirmed with supplier); none are included in the listing.", "The third essential oil note is unspecified; it is not named in the listing.", "Weight is only given as approximate (0.4 kg); confirm the exact weight with the supplier.", "known_variations is not filled in, so no statement about handmade or batch variation is made. Confirm whether the product varies.", "not_this is not filled in, so there are no brand exclusions to check against.", "The making method is not stated in the brief, so the listing does not describe how the candle is made.", "The HS code 3406.00 is marked as assumed and needs confirmation (not used in the listing).", "Compliance sign-off is missing: Priya and Sneha have not reviewed this brief.", "No documentation is on file for the soy wax material claim, the sustainability claim, or the wellness claims."], "removed_claims": ["'Clinically proven to reduce stress' (key selling point 1 and substantiation field): declined by Legal for this SKU, and the only source is the oil supplier's marketing materials.", "'Improves sleep quality' / 'improve sleep quality' (key selling point 2 and positioning): a wellness claim with no local certification or substantiation.", "'Reduce stress' and 'help you unwind' (positioning): wellness claims that cannot be used.", "'100% natural soy wax' (key selling point 3): supplier verbal confirmation only, with no document on file. The listing says 'soy wax blend' as stated in the materials field.", "'Eco-friendly soy wax' (key selling point 3 and substantiation field): no chain-of-custody documentation, and 'eco-friendly' is a prohibited term.", "Campaign hook 'Your nightly reset. Clinically calming.': implies wellness effects, and 'clinically' is unsubstantiated.", "'A calming candle' (positioning): 'calming' is a prohibited word. The only exception approved by Legal (ref {LEGAL_REF}) is the exact word 'calm' in the product name, used in the title and description.", "Merchandiser note that similar language was used on previous candle launches: not a valid substantiation."]}}, "ground": {"golden": {"checked": 33, "supported": 33, "unsupported": []}, "candle1": {"checked": 27, "supported": 25, "unsupported": [{"statement": "the room carries a woody, fresh character when the candle is lit", "location": "bullet 1", "issue": "The brief does not describe the scent character as woody or fresh. This is inferred from the note names."}, {"statement": "Expect a woody, fresh character", "location": "description", "issue": "The brief gives no scent profile or descriptors. This is an inference."}]}, "candle2": {"checked": 25, "supported": 23, "unsupported": [{"statement": "the scent in the room comes from the oils named on the label", "location": "bullet 1", "issue": "The brief says nothing about a label naming the oils, and it mentions a third unspecified note, so the claim that the scent comes only from named oils is not supported."}, {"statement": "a glass jar that you can keep once the candle is finished", "location": "bullet 2", "issue": "The brief does not say the jar is reusable or suitable to keep after the candle is used up."}]}}, "timing": {"golden": 11.7, "candle1": 9.9, "candle2": 17.6}};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function recFor(input){
+  if (/KN-PL-2447/.test(input)) return "golden";
+  if (/KN-CN-2451/.test(input)) return /LEGAL-APPROVED EXCEPTIONS|LEGAL-DECLINED CLAIMS/.test(input) ? "candle2" : "candle1";
+  return null;
+}
+function listingFor(key, input){
+  const l = JSON.parse(JSON.stringify(REC.listings[key]));
+  if (key === "candle2"){
+    const ref = (input.match(/approval ref ([A-Z0-9-]+)/) || [])[1] || "on file";
+    l.removed_claims = l.removed_claims.map(x => x.replace("{LEGAL_REF}", ref));
+    const declinedCalm = /LEGAL-DECLINED CLAIMS[^\n]*"calm"/i.test(input);
+    const approvedCalm = /LEGAL-APPROVED EXCEPTIONS[^\n]*"calm"/i.test(input);
+    if (declinedCalm || !approvedCalm){ l.title = l.title.replace(" Calm Candle"," Candle"); l.description = l.description.replace(" Calm Candle"," Candle"); }
+  }
+  return l;
+}
+const fakeSample = async (input, opts) => {
+  const key = recFor(input);
+  if (!key) throw {code:"replay", message:"This recorded walkthrough only replays the two sample briefs (unchanged). Use the live version for other briefs."};
+  const text = JSON.stringify(listingFor(key, input), null, 1);
+  const steps = 24, total = Math.min(REC.timing[key], 6) * 1000;
+  for (let i = 1; i <= steps; i++){ await sleep(total/steps); opts && opts.onText && opts.onText({text: text.slice(0, Math.ceil(text.length*i/steps))}); }
+  return {text, truncated:false};
+};
+fakeSample.json = async (input) => {
+  if (/You extract a Kanvas/.test(input)) throw {message:"Uploading a new brief needs the live version (claude.ai link above). This recorded walkthrough replays the two sample briefs."};
+  if (/Node 4b/.test(input)){
+    await sleep(2500);
+    const sku = (input.match(/"sku": "([^"]+)"/) || [])[1];
+    let lst = {}; try { lst = JSON.parse(input.split("=== LISTING ===")[1]); } catch(e){}
+    const text = [lst.title||"", ...(lst.bullets||[]), lst.description||""].join(" ").toLowerCase();
+    const key = sku === "KN-PL-2447" ? "golden" : (/Calm Candle|oils named on the label|you can keep once/.test([lst.title, ...(lst.bullets||[])].join(" ")) ? "candle2" : "candle1");
+    const g = REC.ground[key];
+    const facts = [];
+    for (let i = 0; i < g.supported; i++) facts.push({statement:"(recorded supported fact)", supported:true});
+    g.unsupported.forEach(u => { if (text.includes(u.statement.toLowerCase())) facts.push({...u, supported:false, brief_evidence:""}); });
+    return {facts};
+  }
+  return {};
+};
+const fakeDownloads = { save: async ({filename, data}) => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], {type:"application/json"})); a.download = filename; a.click(); } };
+window.claude = { use: async n => n === "sample" ? fakeSample : n === "downloads" ? fakeDownloads : null };
+</script>
+<script>
+const MODEL = "Claude (recorded output from 5 Nov 2026, replayed; live version on claude.ai)";
+const VERSION = "prototype v1.1 / prompt v2.1";
+let downloadsPromise = window.claude ? window.claude.use("downloads") : Promise.resolve(null);
+let samplePromise = window.claude ? window.claude.use("sample") : Promise.resolve(null);
+
+const GOLDEN = {
+  sku: "KN-PL-2447",
+  product_name: "Mira Terracotta Planter Set (Set of 3)",
+  category: "Planters",
+  target_channel: "Amazon AE",
+  target_market: "AE",
+  materials: "Hand-thrown terracotta, fired at 980°C. Interior food-grade sealant for water retention. Cork pad included to protect furniture surfaces.",
+  specs: "Set of 3. Small 12 x 12 x 14 cm (0.6 kg); Medium 16 x 16 x 18 cm (1.1 kg); Large 22 x 22 x 24 cm (1.9 kg). Total set 3.6 kg. Colours: Warm Ochre, Soft Charcoal, Pale Sand. Drainage hole with cork plug. Made in Jaipur, India. HS code 6914.10. Care: wipe interior dry between waterings; avoid prolonged exposure to direct rain. Packaging: recycled corrugated set-box, planters wrapped in unbleached jute paper.",
+  positioning: "A set of three hand-thrown terracotta planters in warm, earth-toned glazes, made in Jaipur by potters working in a tradition that pre-dates electricity.",
+  campaign_hook: "Hands on the wheel. Earth in the home.",
+  key_selling_points: "(1) Three coordinated sizes for layered display; (2) Hand-thrown, no two identical; (3) Made in a 200-year-old workshop in Jaipur, single supplier with chain-of-custody documentation.",
+  claims_substantiation: "Material: 'Hand-thrown terracotta, fired in Jaipur' (supplier documentation on file); 'Interior food-grade sealant' (supplier certification on file). Sustainability: recycled packaging substantiated only; no broader sustainability claims permitted (chain-of-custody covers the planters only). Wellness claims: none. Comparative claims: none.",
+  not_this: "Not a fragile decorative object: these are usable planters. Not 'designer': they are everyday.",
+  known_variations: "Glaze tone varies between pieces in a set (intentional). Sizes vary by about ±2 cm (hand-thrown). Suitable for brief outdoor shelter only, not outdoor permanence.",
+  compliance_signoff: "Complete"
+};
+
+const EDGE = {
+  sku: "KN-CN-2451",
+  product_name: "Cedarwood + Eucalyptus Calm Candle",
+  category: "Candles",
+  target_channel: "Amazon AE",
+  target_market: "AE",
+  materials: "Soy wax blend, cotton wick, essential oil blend (cedarwood + eucalyptus + a third unspecified note). Glass jar, kraft paper sleeve.",
+  specs: "Dimensions: not specified (to be confirmed with supplier). Weight: 0.4 kg (approx). Colour: off-white only. Made in Bengaluru, India. HS code 3406.00 (assumed). Care: burn for max 4 hours at a time; trim wick; do not leave unattended.",
+  positioning: "A calming candle designed to help you unwind, reduce stress, and improve sleep quality after a long day.",
+  campaign_hook: "Your nightly reset. Clinically calming.",
+  key_selling_points: "(1) Clinically proven to reduce stress; (2) Improves sleep quality; (3) 100% natural, eco-friendly soy wax",
+  claims_substantiation: "Material: '100% natural soy wax' (supplier verbal confirmation, no document on file). Sustainability: 'Eco-friendly soy wax' (no chain-of-custody documentation). Wellness: 'Clinically proven to reduce stress and improve sleep quality' (based on the essential oil supplier's marketing materials). Merchandiser note: 'I think this is fine. Previous candle launches used similar language.'",
+  not_this: "[Not filled in]",
+  known_variations: "[Not filled in]",
+  compliance_signoff: "NOT signed off (Priya / Sneha have not seen it)"
+};
+
+const SYSTEM_PROMPT = `You are the Kanvas & Co. Listing Generation Agent (Stage 2 of the redesigned New Product Launch workflow). Your job is to take one approved product brief and generate an Amazon AE listing in Kanvas brand voice. You produce a first draft only: a compliance check and a human merchandiser review everything you write.
+
+KANVAS BRAND VOICE RULES (from 07_Brand_Voice_Guidelines):
+- Warm, curious, quietly confident: like a friend who has lived in a few cities and learned what makes a house feel like home.
+- Warm, not casual. Use "you" and "we"; never "hey" or "guys". No exclamation marks.
+- Quietly confident, not promotional. Never call anything "best", never stack superlatives, no empty intensifiers (stunning, luxe, elevate, transform).
+- Specific, not generic. Describe materials, textures, dimensions and contexts. Do not tell the customer what to feel.
+- Honest about handmade variation. If the brief notes variation, say so plainly so expectations are set.
+- Preferred vocabulary: "hand-finished" not "premium"; "sits well in" not "elevates"; "pairs with" not "complements"; "everyday" not "lifestyle"; "natural fibre" not "eco-friendly". Use a preferred word only where the brief states the underlying fact: never call a product "hand-finished" unless the brief says it is hand-finished.
+
+AMAZON AE RULES (from 06_Channel_Listing_Requirements):
+- Title: max 200 characters. Brand + product type + key feature. No promotional language ("Best", "Sale").
+- Bullets: exactly 5, benefit-first phrasing, max 250 characters each in this draft (Amazon allows 500).
+- Description: max 1,500 characters in this draft (Amazon allows 2,000). Plain text; no HTML except <br>.
+- UAE jurisdiction: include Arabic translations for key product attributes. Wellness claims require local certification, so none may appear.
+- Prohibited: medical, therapeutic or anti-ageing claims; "organic" without certification.
+
+HARD RULES:
+1. Only use factual claims that are present in the brief AND marked as substantiated. If a claim has no documentation on file, leave it out.
+2. Never use these words or phrases: clinically proven, scientifically proven, medically tested, therapeutic, healing, cures, treats, reduces stress, relieves stress, improves sleep, sleep aid, boosts mood, aids relaxation, calming, 100% natural, non-toxic, eco-friendly, green (as a claim), sustainable, organic, best, unmatched, unbeatable, world's finest, limited time.
+3. Do not imply those effects in other words (for example "helps you unwind", "for better sleep", "melts stress away", "your nightly reset").
+4. Never invent a specification. If a fact the listing needs (such as dimensions or weight) is missing or unconfirmed, leave it out and list it in "gaps". If nothing is missing, return "gaps": [].
+5. If the brief contains language you cannot use, write neutral sensory language instead (only the scent notes, materials and making methods the brief states, plus how to use it safely) and record each removed claim in "removed_claims". If you removed nothing, return "removed_claims": [].
+6. If the product name itself contains a wellness word or implication (for example "Calm"), leave that word out of the title and the whole listing, and record it in "removed_claims" so the merchandiser can refer it to Legal. Keep the rest of the product name.
+7. Never describe how a product is made (hand-poured, handmade, hand-finished, artisan, small-batch or similar) unless the brief states it. Never add scent notes, ingredients, materials, origins, certifications or specifications that the brief does not state.
+8. If a brief field is blank, "[Not filled in]", unconfirmed or unspecified, assert nothing about it. For example, do not mention batch-to-batch variation if variation is not specified.
+
+OUTPUT FORMAT: return ONLY a JSON object, with no markdown fences and no commentary:
+{"title": "...", "bullets": ["...","...","...","...","..."], "description": "...", "arabic_key_attributes": {"product_type": "...", "material": "...", "country_of_origin": "..."}, "gaps": ["..."], "removed_claims": ["..."]}`;
+
+// Node 4 detection rules
+const PROHIBITED = [
+  "clinically proven","scientifically proven","medically tested","therapeutic","healing","cures","treats",
+  "reduces stress","reduce stress","relieves stress","stress relief","improves sleep","improve sleep","sleep aid",
+  "boosts mood","aids relaxation","calming","antimicrobial","100% natural","non-toxic","eco-friendly",
+  "100% sustainable","world's finest","unmatched","unbeatable","limited time","only a few left"
+];
+const PROHIBITED_WORDS = ["best","organic","sustainable"];
+const wordRe = w => new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}(?![a-z0-9])`,"i");
+const IMPLIED = [
+  {name:"implied relaxation / sleep effect", re:/\bhelps?\s+(you\s+)?(to\s+)?(sleep|relax|unwind|de-?stress|switch off)\b/i},
+  {name:"stress / anxiety relief", re:/\b(reduc|reliev|eas|melt|soothe?)\w*\s+(away\s+)?(your\s+)?(stress|anxiety|tension|worries)\b/i},
+  {name:"sleep / mood / wellbeing effect", re:/\b(promot|improv|enhanc|support|better|deeper|restful)\w*\s+(your\s+)?(sleep|wellbeing|well-being|mood|relaxation|rest)\b/i},
+  {name:"clinical / scientific framing", re:/\b(clinically|scientifically|dermatologically|medically)\b/i},
+  {name:"wellness word 'calm'", re:/\bcalm(ing|s)?\b/i},
+  {name:"nightly ritual / reset framing", re:/\b(nightly|evening)\s+(reset|ritual|recovery)\b/i},
+  {name:"sustainability framing", re:/\b(eco|planet|earth)[-\s]?friendly\b|\bgreen\s+(choice|living|product)\b/i}
+];
+
+let claimDecisions = {}, lastComp = null, legalLog = [];
+let grounding = null, groundDecisions = {}, groundSeq = 0;
+const CONDITIONAL_TERMS = ["hand-finished","hand-poured","poured by hand","handmade","made by hand","handcrafted","artisan","artisanal","small-batch","hand-thrown","hand-woven","hand-painted","hand-blocked","hand-blown","hand-dipped"];
+const normT = x => String(x||"").toLowerCase().replace(/[-\s]+/g," ");
+function listingText(l){ return [l.title||"", ...(l.bullets||[]), l.description||""].join(" "); }
+function requiredFields(p){
+  const s = String(p.specs||""), m = String(p.materials||"");
+  const missing = [];
+  if (!/\d+(\.\d+)?\s*[x×]\s*\d+/i.test(s) || /dimensions?\s*[:(]?\s*(not specified|to be confirmed|tbc|\[not)/i.test(s)) missing.push("dimensions");
+  if (!/\d+(\.\d+)?\s*(kg|g)\b/i.test(s)) missing.push("weight");
+  if (!m.trim() || /^\[not/i.test(m.trim())) missing.push("material");
+  if (!/made in|country of origin/i.test(s + " " + m + " " + String(p.positioning||""))) missing.push("country of origin");
+  return missing;
+}
+const GROUND_PROMPT = `You are Node 4b, the fact-grounding check in the Kanvas & Co. listing workflow. Compare the LISTING with the source BRIEF.
+List every factual statement in the listing: materials, ingredients, scent notes, origin, how the product is made, dimensions, weights, burn time, colours, quantities, what is included, care, packaging, certifications and variation. Skip pure style or usage suggestions that assert no fact (for example "sits well on a low shelf").
+For each statement decide "supported": true only if the brief explicitly states that fact (paraphrase, unit conversion and an Arabic translation of a supported attribute all count as supported). Mark false if the fact is absent from the brief, contradicts it, or asserts something about a field the brief leaves blank, unconfirmed or "[Not filled in]".
+Return ONLY a JSON object: {"facts":[{"statement":"short quote from the listing","location":"title | bullet 1-5 | description | arabic","supported":true,"brief_evidence":"short quote from the brief, or empty","issue":"why it is unsupported, or empty"}]}`;
+async function groundingCheck(listing, p){
+  const all = listingText(listing), brief = normT(Object.values(p).join(" "));
+  const seen = new Set(), termHits = [];
+  CONDITIONAL_TERMS.forEach(t => { const n = normT(t); if (normT(all).includes(n) && !brief.includes(n) && !seen.has(n)) { seen.add(n); termHits.push(t); } });
+  const sample = await samplePromise;
+  if (!sample) throw {code:"unavailable", message:"The fact-grounding check needs this page opened from its claude.ai link."};
+  const res = await sample.json(GROUND_PROMPT + "\n\n=== BRIEF ===\n" + JSON.stringify(p, null, 1) + "\n\n=== LISTING ===\n" + JSON.stringify({title:listing.title, bullets:listing.bullets, description:listing.description, arabic_key_attributes:listing.arabic_key_attributes}, null, 1), {cache:false});
+  const facts = (res && Array.isArray(res.facts)) ? res.facts : [];
+  const unsupported = facts.filter(f => f && f.supported === false).map(f => ({statement:String(f.statement||""), location:String(f.location||""), issue:String(f.issue||"not stated in the brief"), source:"agent check"}));
+  termHits.forEach(t => { if (!unsupported.some(u => normT(u.statement).includes(normT(t)))) unsupported.push({statement:t, location:"listing", issue:"making-process term the brief does not state", source:"keyword rule"}); });
+  return { checked: facts.length, supported: facts.filter(f => f && f.supported === true).length, unsupported, term_hits: termHits };
+}
+function renderGrounding(){
+  const el = $("grounding");
+  if (!grounding){ el.innerHTML = '<span class="empty">Runs after Node 4, before a person sees the draft.</span>'; return; }
+  if (grounding.error){ el.innerHTML = `<p><span class="pill block">Fact-grounding check did not complete: Approve stays locked</span></p><p class="error">${esc(grounding.error)}</p><button data-gact="retry">Re-run fact-grounding check</button>`; return; }
+  if (grounding.pending){ el.innerHTML = '<p><span class="pill flag">Checking every fact against the brief…</span></p>'; return; }
+  const open = grounding.unsupported.filter(u => !groundDecisions[u.statement.toLowerCase()]).length;
+  const pill = !grounding.unsupported.length ? '<span class="pill ok">All facts trace to the brief</span>'
+    : open ? `<span class="pill block">${grounding.unsupported.length} unsupported fact(s): Approve locked</span>` : '<span class="pill ok">Unsupported facts confirmed with a source</span>';
+  el.innerHTML = `<p>${pill} <span class="small">${grounding.checked} facts checked · ${grounding.supported} supported · ${grounding.unsupported.length} unsupported</span></p>
+  ${grounding.unsupported.length ? `<table><tr><th style="width:auto">Statement in the listing</th><th style="width:auto">Where</th><th style="width:auto">Why it was flagged</th><th style="width:auto">Found by</th><th style="width:auto">Merchandiser decision</th></tr>
+  ${grounding.unsupported.map((u,i) => { const d = groundDecisions[u.statement.toLowerCase()];
+    return `<tr><td><span class="hit">${esc(u.statement)}</span></td><td>${esc(u.location)}</td><td>${esc(u.issue)}</td><td>${esc(u.source)}</td><td>${d ? `<span class="pass">Confirmed with source</span><div class="small">“${esc(d.source)}” · ${esc(d.by)}, ${esc(d.at.slice(11,16))}</div>` : `<div class="dec"><span class="small">Edit the draft to remove it, or</span><input placeholder="Source confirming this fact (required)" data-gsrc="${i}"><button data-gact="confirm" data-i="${i}">Confirm with source</button></div>`}</td></tr>`; }).join("")}</table>` : ""}`;
+}
+async function runGrounding(listing){
+  const seq = ++groundSeq;
+  grounding = {pending:true}; renderGrounding(); setNode(4,"run"); $("m4b").textContent = "checking…"; const t = performance.now();
+  try {
+    const g = await groundingCheck(listing, payload);
+    if (seq !== groundSeq) return;
+    grounding = g; setNode(4,"done"); $("m4b").textContent = `${((performance.now()-t)/1000).toFixed(1)} s · ${g.checked} facts checked`;
+    log(`Node 4b Fact-grounding check: ${g.checked} facts checked, ${g.unsupported.length} unsupported${g.unsupported.length ? ": " + g.unsupported.map(u => `“${u.statement}”`).join(", ") : ""}`);
+  } catch(e){
+    if (seq !== groundSeq) return;
+    grounding = {error: e.code === "rate_limited" ? "Too many runs at once. Wait a minute, then re-run the check." : (e.message || "The check returned output that could not be read.")};
+    setNode(4,"err"); $("m4b").textContent = "error"; log(`Node 4b error: ${grounding.error}`);
+  }
+  renderGrounding();
+  if (lastResult){ lastResult.fact_grounding = grounding; $("final").textContent = JSON.stringify(lastResult, null, 2); updateGates(); renderLegal(); }
+}
+let declined = new Set(), allowed = new Set(), legal = {status:null, decisions:{}}, pass = 1, currentSku = null;
+function briefHash(o){ const t = JSON.stringify(o); let h = 0; for (let i = 0; i < t.length; i++) h = (h*31 + t.charCodeAt(i)) >>> 0; return h.toString(36); }
+function resetReview(){ claimDecisions = {}; allowed = new Set(); declined = new Set(); legal = {status:null, decisions:{}}; pass = 1; currentSku = null; }
+const SOFT_KINDS = ["wellness word 'calm'","nightly ritual / reset framing"];
+const LOG_KEY = "kanvas-legal-log-v1";
+const RISK_HIGH_TERMS = ["clinically proven","scientifically proven","medically tested","therapeutic","healing","cures","treats","reduces stress","reduce stress","relieves stress","stress relief","improves sleep","improve sleep","sleep aid","boosts mood","aids relaxation","antimicrobial"];
+const RISK_MED_TERMS = ["100% natural","non-toxic","eco-friendly","100% sustainable","sustainable","organic","calming"];
+const RISK_HIGH_KINDS = ["clinical / scientific framing","stress / anxiety relief","sleep / mood / wellbeing effect"];
+const RISK_MED_KINDS = ["implied relaxation / sleep effect","sustainability framing"];
+const RISK_LABEL = {3:"High", 2:"Medium", 1:"Low"};
+const RISK_WHY = {3:"medical / health-effect claim: UAE wellness certification, ACCC and HSA rules", 2:"unsubstantiated material, sustainability or implied-effect claim", 1:"tone or naming, not a factual claim"};
+function riskOf(claim, kind){
+  const c = claim.toLowerCase();
+  if (RISK_HIGH_TERMS.includes(c) || RISK_HIGH_KINDS.includes(kind)) return 3;
+  if (RISK_MED_TERMS.includes(c) || RISK_MED_KINDS.includes(kind)) return 2;
+  return 1;
+}
+const riskBadge = r => `<span class="risk r${r}" title="${esc(RISK_WHY[r])}">${RISK_LABEL[r]}</span>`;
+try { legalLog = JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); } catch(_) { legalLog = []; }
+function saveLog(){ try { localStorage.setItem(LOG_KEY, JSON.stringify(legalLog.slice(-50))); } catch(_){} }
+let lastFlags = null, payload = null, lastResult = null, runCounter = 0, editing = false;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const nodes = [...document.querySelectorAll(".node")];
+const now = () => new Date().toISOString().replace("T"," ").slice(0,19);
+
+function log(msg){
+  const l = $("log"); if (l.querySelector(".empty")) l.innerHTML = "";
+  const d = document.createElement("div"); d.textContent = `[${now()}] ${msg}`; l.appendChild(d);
+}
+function setNode(i, state){ nodes[i].classList.remove("run","done","err"); if(state) nodes[i].classList.add(state); }
+function markLoaded(which){
+  ["loadGolden","loadEdge"].forEach(id => { const b=$(id); b.classList.toggle("sel", id===which); b.setAttribute("aria-pressed", id===which); b.textContent = b.dataset.base + (id===which ? " ✓ loaded" : ""); });
+  $("uplLabel").classList.toggle("sel", which==="upload");
+  const p1=$("p1"); p1.classList.remove("flash"); void p1.offsetWidth; p1.classList.add("flash");
+}
+function load(obj, label){
+  $("payload").value = JSON.stringify(obj, null, 2);
+  $("m1").textContent = "input payload (JSON)";
+  $("loaded").textContent = `Loaded: ${label}`;
+  nodes.forEach((_,i)=>setNode(i,null));
+  ["m2","m3","m4","m5"].forEach(m=>$(m).textContent="waiting");
+  $("parsed").innerHTML = '<span class="empty">Run the workflow to parse the brief.</span>';
+  $("raw").textContent = "No output yet."; $("compliance").innerHTML = '<span class="empty">Runs on every agent output before a person sees it.</span>';
+  $("listing").innerHTML = '<span class="empty">The draft appears here.</span>'; $("final").textContent = "No result yet.";
+  $("decision").innerHTML = ""; ["approve","edit","reject"].forEach(b=>$(b).disabled=true);
+  $("dl").disabled = true; $("hold").disabled = true; resetReview(); lastComp = null; $("gates").innerHTML = "";
+  grounding = null; groundDecisions = {}; groundSeq++; if ($("m4b")) { $("m4b").textContent = "waiting"; renderGrounding(); }
+  if (typeof renderLegal === "function") renderLegal();
+}
+nodes.forEach(n => n.addEventListener("click", () => $(n.dataset.go).scrollIntoView({behavior:"smooth"})));
+$("loadGolden").onclick = () => { load(GOLDEN, "10_Sample_Product_Brief_FILLED (Mira Terracotta Planter Set)"); markLoaded("loadGolden"); log("Loaded golden brief KN-PL-2447"); };
+$("loadEdge").onclick = () => { load(EDGE, "11_Sample_Product_Brief_EDGE_CASE (Cedarwood + Eucalyptus candle)"); markLoaded("loadEdge"); log("Loaded edge-case brief KN-CN-2451"); };
+
+$("config").textContent =
+`Platform: Claude (vibe-coded workflow, equivalent of the n8n starter's 5 nodes, plus Node 4b in v1.1)
+Version: ${VERSION}
+Model: ${MODEL}
+Response format: JSON object only (validated by Node 4)
+
+SYSTEM PROMPT
+-------------
+${SYSTEM_PROMPT}`;
+
+const CLAIM_FIELDS = ["product_name","positioning","campaign_hook","key_selling_points","claims_substantiation","materials","specs"];
+function sourceFlags(p){
+  const findings = [];
+  CLAIM_FIELDS.forEach(f => {
+    const v = String(p[f] ?? "");
+    PROHIBITED.concat(PROHIBITED_WORDS).forEach(w => { const m = v.match(wordRe(w)); if (m) findings.push({claim:w, field:f, kind:"prohibited term"}); });
+    IMPLIED.forEach(r => { const m = v.match(r.re); if (m) findings.push({claim:m[0].trim(), field:f, kind:r.name, re:r.re}); });
+  });
+  // de-duplicate by claim text (keep first field seen)
+  const seen = new Set(), claims = findings.filter(x => { const k = x.claim.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  const gaps = [];
+  Object.entries(p).forEach(([k,v]) => { if (/not specified|not filled in|not in brief|to be confirmed|\(assumed\)|no document on file|not signed off/i.test(String(v))) gaps.push(k); });
+  const unsubstantiated = /no document|verbal|marketing materials|no chain-of-custody|not signed off|has not signed/i.test(String(p.claims_substantiation||"") + " " + String(p.compliance_signoff||""));
+  return {risky_claims_in_brief: claims, risky_terms_in_brief: claims.map(c=>c.claim), incomplete_or_unverified_fields: gaps, unsubstantiated_claims_in_brief: unsubstantiated};
+}
+
+function complianceCheck(listing, market, src){
+  src = src || {risky_claims_in_brief:[], unsubstantiated_claims_in_brief:false};
+  const all = [listing.title||"", ...(listing.bullets||[]), listing.description||""].join(" ");
+  const lower = all.toLowerCase();
+  const prohibited_hits = PROHIBITED.filter(w => wordRe(w).test(all));
+  PROHIBITED_WORDS.forEach(w => { if (new RegExp(`\\b${w}\\b`,"i").test(all)) prohibited_hits.push(w); });
+  for (let k = prohibited_hits.length - 1; k >= 0; k--) if (allowed.has(prohibited_hits[k].toLowerCase())) prohibited_hits.splice(k,1);
+  const implied_hits = [];
+  IMPLIED.forEach(r => { const m = all.match(r.re); if (m && !allowed.has(m[0].toLowerCase().trim())) implied_hits.push({rule:r.name, matched:m[0]}); });
+  const b = listing.bullets || [];
+  const checks = [
+    ["Title ≤ 200 characters", (listing.title||"").length <= 200, `${(listing.title||"").length} chars`],
+    ["Exactly 5 bullets", b.length === 5, `${b.length} bullets`],
+    ["Each bullet ≤ 500 characters", b.every(x => x.length <= 500), `longest ${Math.max(0,...b.map(x=>x.length))} chars`],
+    ["Description ≤ 2,000 characters", (listing.description||"").length <= 2000, `${(listing.description||"").length} chars`],
+    ["No HTML except <br>", !/<(?!br\s*\/?>)[a-z\/][^>]*>/i.test(all), "checked"],
+    ["No promotional title words (Best, Sale)", !/\b(best|sale)\b/i.test(listing.title||""), "checked"],
+    ["Arabic key attributes present (UAE)", market !== "AE" || !!(listing.arabic_key_attributes && Object.values(listing.arabic_key_attributes).some(v => /[\u0600-\u06FF]/.test(v))), "checked"]
+  ];
+  const failed = checks.filter(c => !c[1]).map(c => c[0]);
+  const gaps = listing.gaps || [];
+  const claims_audit = src.risky_claims_in_brief.map(c => {
+    const still = c.re ? c.re.test(all) : wordRe(c.claim).test(all);
+    const ok = allowed.has(c.claim.toLowerCase());
+    return {claim_in_brief:c.claim, brief_field:c.field, type:c.kind, soft: SOFT_KINDS.includes(c.kind), risk: riskOf(c.claim, c.kind), allowed: ok,
+      outcome: ok ? (still ? "Legal-approved: in listing" : "Legal-approved: allowed") : (still ? "STILL IN LISTING" : "Removed from listing")};
+  });
+  claims_audit.sort((x,y) => y.risk - x.risk);
+  const rawRisk = claims_audit.some(a => !a.allowed) || src.unsubstantiated_claims_in_brief;
+  const released = legal.status === "released";
+  const briefRisk = rawRisk && !released;
+  let status;
+  if (prohibited_hits.length || implied_hits.length) status = "BLOCKED — prohibited or implied claim detected";
+  else if (briefRisk) status = "FLAGGED — brief contains unsubstantiated or prohibited claims: removed from listing. Confirm each removal, or refer any you want kept to Legal";
+  else if (failed.length || gaps.length) status = released ? "FLAGGED — Legal decisions applied; check gaps before approving" : "FLAGGED — needs merchandiser attention";
+  else status = released ? "OK — Legal decisions applied; ready for merchandiser approval" : "OK — ready for human review";
+  return {claims_audit, legal_escalation: briefRisk, legal_released: released, legal_involved: rawRisk || released, removed_claims: listing.removed_claims || [], prohibited_hits:[...new Set(prohibited_hits)], implied_claim_hits: implied_hits, channel_rule_checks: checks.map(c=>({rule:c[0], pass:c[1], detail:c[2]})), gaps, requires_review: status};
+}
+
+async function callAgent(p, onText){
+  const sample = await samplePromise;
+  if (!sample) throw {code:"unavailable", message:"The agent can only run when this page is opened from its claude.ai link."};
+  const userMsg = `Generate an Amazon AE listing for this approved product brief:\n\n` +
+    Object.entries(p).map(([k,v]) => `${k}: ${v}`).join("\n") +
+    (allowed.size ? `\n\nLEGAL-APPROVED EXCEPTIONS (approval ref ${legal.ref}, ${legal.by || "Legal"}): for SKU ${p.sku} and this brief version ONLY, you MAY use these exact phrases: ${[...allowed].map(x=>`"${x}"`).join(", ")}. These are one-off exceptions for this listing, not general permissions: never treat them as approved for any other product or brief. Every other rule and prohibition still applies.` : "") +
+    (declined.size ? `\n\nLEGAL-DECLINED CLAIMS for this SKU: these must NOT appear anywhere in the listing, including the title and product name: ${[...declined].map(x=>`"${x}"`).join(", ")}.` : "") +
+    `\n\nReturn the listing as a JSON object exactly in the required format.`;
+  const input = SYSTEM_PROMPT + "\n\n=== PRODUCT BRIEF ===\n" + userMsg;
+  const { text, truncated } = await sample(input, { cache:false, onText: ({text}) => onText(text) });
+  return {text, truncated};
+}
+function parseJSON(text){
+  let t = text.replace(/```json|```/g,"").trim();
+  const a = t.indexOf("{"), z = t.lastIndexOf("}");
+  if (a >= 0 && z > a) t = t.slice(a, z+1);
+  return JSON.parse(t);
+}
+
+function renderListing(l){
+  const ar = l.arabic_key_attributes || {};
+  return `<div class="listing" id="listingBody">
+    <h3 data-f="title">${esc(l.title)}</h3>
+    <ul>${(l.bullets||[]).map((b,i)=>`<li data-f="bullet${i}">${esc(b)}</li>`).join("")}</ul>
+    <p class="desc" data-f="description">${esc(l.description).replace(/&lt;br\s*\/?&gt;/gi,"<br>")}</p>
+    <p class="note" style="margin:14px 0 6px"><strong>Arabic key attributes</strong> (required for UAE listings, 06_Channel_Listing_Requirements)</p>
+    <table class="artab">${Object.entries(ar).map(([k,v])=>`<tr><th>${esc({product_type:"Product type",material:"Material",country_of_origin:"Country of origin"}[k]||k.replace(/_/g," "))}</th><td class="ar">${esc(v)}</td></tr>`).join("")}</table>
+  </div>`;
+}
+function decisionCell(a,i){
+  const key = a.claim_in_brief.toLowerCase(), d = claimDecisions[key], ld = legal.decisions[key];
+  const earlier = d && d.pass < pass ? " (earlier pass)" : "";
+  const who = d ? `<div class="small">${esc(d.by)}, ${esc(d.at.slice(11,16))}</div>` : "";
+  if (d && d.decision === "removed") return `<span class="pass">Removal confirmed${esc(earlier)}</span>${who}`;
+  if (d && d.decision === "referred"){
+    if (!ld) return `<span style="color:var(--flag);font-weight:700">Referred to Legal</span><div class="small">“${esc(d.reason)}”${d.evidence ? ` · evidence: ${esc(d.evidence)}` : ""} · awaiting Legal</div>`;
+    return ld.decision === "approved"
+      ? `<span class="pass">Legal approved: allowed back in</span><div class="small">${esc(ld.by)}${ld.note ? ` · “${esc(ld.note)}”` : ""}</div>`
+      : `<span class="fail">Legal declined: stays removed</span><div class="small">${esc(ld.by)}${ld.note ? ` · “${esc(ld.note)}”` : ""}</div>`;
+  }
+  if (legal.status === "pending") return '<span class="small">Locked while Legal reviews</span>';
+  const hint = a.risk === 3 ? '<span class="small">High risk: referral needs evidence on file</span>' : "";
+  if (!a.outcome.startsWith("Removed")) return `<div class="dec" data-i="${i}"><button data-act="refer" data-i="${i}">Refer to Legal</button><span class="small">or edit the draft to remove it</span></div>`;
+  return `<div class="dec" data-i="${i}"><button data-act="confirm" data-i="${i}">Confirm removal</button><button data-act="refer" data-i="${i}">Refer to Legal</button>${hint}</div>`;
+}
+function renderCompliance(c){
+  const pill = c.requires_review.startsWith("BLOCKED") ? "block" : c.requires_review.startsWith("FLAGGED") ? "flag" : "ok";
+  const audit = c.claims_audit.length ? `<p class="note" style="margin-top:12px"><strong>Claims audit</strong>: risky claims found in the source brief, highest risk first, and what happened to each ${legal.status !== "pending" && c.claims_audit.some(x=>x.outcome.startsWith("Removed") && !claimDecisions[x.claim_in_brief.toLowerCase()]) ? '<button data-act="confirmall" style="margin-left:8px;padding:4px 9px;font-size:12.5px">Confirm all remaining removals</button>' : ""}</p>
+    <table><tr><th style="width:auto">Risk</th><th style="width:auto">Claim in brief</th><th style="width:auto">Brief field</th><th style="width:auto">Type</th><th style="width:auto">Outcome</th><th style="width:auto">Merchandiser decision</th></tr>
+    ${c.claims_audit.map((a,i)=>`<tr><td>${riskBadge(a.risk)}</td><td><span class="hit">${esc(a.claim_in_brief)}</span></td><td>${esc(a.brief_field)}</td><td>${esc(a.type)}</td><td class="${a.outcome.startsWith("Removed")||a.allowed?"pass":"fail"}">${esc(a.outcome)}</td><td>${decisionCell(a,i)}</td></tr>`).join("")}</table>
+    ${c.legal_escalation ? '<p class="error" style="margin-top:8px">The brief makes claims without substantiation on file. They stay out of the listing unless Legal approves a referral; Legal (Priya / Sneha) is notified either way.</p>' : ""}`
+    : '<p class="note" style="margin-top:12px"><strong>Claims audit</strong>: <span class="pass">no risky claims found in the source brief</span></p>';
+  return `<p><span class="pill ${pill}">${esc(c.requires_review)}</span></p>${audit}
+  <div class="two">
+    <div>
+      <p class="note"><strong>prohibited_hits</strong> (keyword list)</p>
+      <p>${c.prohibited_hits.length ? c.prohibited_hits.map(h=>`<span class="hit">${esc(h)}</span>`).join("") : '<span class="pass">none</span>'}</p>
+      <p class="note"><strong>implied_claim_hits</strong> (regex patterns)</p>
+      <p>${c.implied_claim_hits.length ? c.implied_claim_hits.map(h=>`<span class="hit">${esc(h.rule)}: “${esc(h.matched)}”</span>`).join("") : '<span class="pass">none</span>'}</p>
+      <p class="note"><strong>removed_claims</strong> reported by the agent</p>
+      <p>${(c.removed_claims||[]).length ? c.removed_claims.map(g=>`<span class="warn">${esc(g)}</span>`).join("") : '<span class="pass">none</span>'}</p>
+      <p class="note"><strong>gaps</strong> reported by the agent</p>
+      <p>${c.gaps.length ? c.gaps.map(g=>`<span class="warn">${esc(g)}</span>`).join("") : '<span class="pass">none</span>'}</p>
+    </div>
+    <div>
+      <p class="note"><strong>Amazon AE channel rules</strong> (06_Channel_Listing_Requirements)</p>
+      <ul class="checks">${c.channel_rule_checks.map(r=>`<li><span class="${r.pass?"pass":"fail"}">${r.pass?"Pass":"Fail"}</span> · ${esc(r.rule)} <span style="color:var(--muted)">(${esc(r.detail)})</span></li>`).join("")}</ul>
+    </div>
+  </div>`;
+}
+
+async function runWorkflow(){
+  try { payload = JSON.parse($("payload").value); }
+  catch(e){ $("m1").innerHTML = `<span class="error">Payload is not valid JSON (${esc(e.message)}). Fix it or reload a brief.</span>`; return; }
+  if (!payload || typeof payload !== "object" || !payload.product_name){ $("m1").innerHTML = '<span class="error">Payload has no product_name. Load or upload a brief first.</span>'; return; }
+  const h = briefHash(payload);
+  if (payload.sku !== currentSku) { resetReview(); currentSku = payload.sku; legal.hash = h; }
+  else if (legal.hash && legal.hash !== h) { log(`Brief ${payload.sku} was changed: earlier decisions and Legal approvals no longer apply`); resetReview(); currentSku = payload.sku; legal.hash = h; }
+  else { pass++; }
+  runCounter++; const runId = `run-${Date.now().toString(36)}`;
+  $("runid").textContent = `${runId} · ${payload.sku}`;
+  $("run").disabled = true; $("run").textContent = "Running…"; editing = false; lastComp = null; lastResult = null; grounding = null; groundDecisions = {}; renderGrounding(); ["approve","hold","edit","reject"].forEach(b=>$(b).disabled=true); $("gates").innerHTML = "";
+  nodes.forEach((_,i)=>setNode(i,null));
+  log(`${runId} (${VERSION}) started for ${payload.sku} (${payload.product_name})${pass > 1 ? ` · pass ${pass}${allowed.size ? `, Legal-approved claims allowed: ${[...allowed].join(", ")}` : ""}` : ""}`);
+
+  // Node 1
+  setNode(0,"done"); $("m1").textContent = `received ${Object.keys(payload).length} fields · ${now()}`; log("Node 1 Product brief in: payload received");
+
+  // Node 2
+  setNode(1,"run"); const t2 = performance.now();
+  const flags = sourceFlags(payload);
+  $("parsed").innerHTML = `<table>${Object.entries(payload).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}
+    <tr><th>source_flags</th><td>${flags.unsubstantiated_claims_in_brief ? '<span class="hit">claims lack substantiation / sign-off</span><br>' : ""}${flags.risky_terms_in_brief.length ? "Risky claims in brief: "+flags.risky_terms_in_brief.map(h=>`<span class="warn">${esc(h)}</span>`).join("") : '<span class="pass">No risky terms in brief</span>'}<br>
+    ${flags.incomplete_or_unverified_fields.length ? "Incomplete or unverified: "+flags.incomplete_or_unverified_fields.map(h=>`<span class="warn">${esc(h)}</span>`).join("") : '<span class="pass">All fields complete</span>'}</td></tr></table>`;
+  const missingReq = requiredFields(payload);
+  const intake = /not signed|has not signed|^\s*$|\[not/i.test(String(payload.compliance_signoff||"")) || flags.unsubstantiated_claims_in_brief;
+  $("parsed").insertAdjacentHTML("afterbegin",
+    (intake ? '<p class="adv">Intake advisory: this brief has no Compliance sign-off or unsubstantiated claims. In production it would be returned to merchandising before the agent runs (recommended for the Pilot stage). The prototype continues so the guardrails can be tested.</p>' : "") +
+    (missingReq.length ? `<p class="adv">Required Amazon fields missing from the brief: ${esc(missingReq.join(", "))}. Approve will be locked until the brief is completed.</p>` : ""));
+  if (intake) log("Node 2 Intake advisory: no Compliance sign-off / unsubstantiated claims; production would return this brief to merchandising (prototype continues for testing)");
+  if (missingReq.length) log(`Node 2 Required fields: missing ${missingReq.join(", ")}; Approve will be locked`);
+  flags.missing_required = missingReq; flags.intake_advisory = intake;
+  setNode(1,"done"); $("m2").textContent = `${Math.round(performance.now()-t2)} ms`;
+  log(`Node 2 Parse brief fields: ${Object.keys(payload).length} fields parsed; ${flags.risky_terms_in_brief.length} risky terms, ${flags.incomplete_or_unverified_fields.length} incomplete fields in source brief`);
+
+  // Node 3
+  setNode(2,"run"); $("m3").textContent = "calling model…"; $("raw").textContent = "Replaying the recorded agent output…"; const t3 = performance.now();
+  let listing;
+  try {
+    const {text, truncated} = await callAgent(payload, t => { $("raw").textContent = t; });
+    if (truncated) log("Node 3 warning: agent output was cut short");
+    listing = parseJSON(text);
+    $("raw").textContent = JSON.stringify(listing, null, 2);
+    setNode(2,"done");
+    const ms = Math.round(performance.now()-t3);
+    $("m3").textContent = `Claude · ${(ms/1000).toFixed(1)} s · ${text.length} chars returned`;
+    log(`Node 3 Listing Generation Agent: draft returned in ${(ms/1000).toFixed(1)} s; ${listing.removed_claims?.length||0} claims removed, ${listing.gaps?.length||0} gaps reported`);
+  } catch(e){
+    const msg = e.code === "not_granted" ? "Permission to run Claude was declined. Reload the page and allow it to run the agent."
+      : e.code === "rate_limited" ? "Too many runs at once. Wait a minute, then run again."
+      : (e.message || "The agent returned output that is not valid JSON. Run again.");
+    setNode(2,"err"); $("m3").innerHTML = `<span class="error">${esc(msg)}</span>`;
+    log(`Node 3 error: ${e.code || "parse"}: ${msg}`); $("run").disabled = false; $("run").textContent = "Run workflow"; return;
+  }
+
+  // Node 4
+  setNode(3,"run"); const t4 = performance.now();
+  const comp = complianceCheck(listing, payload.target_market, flags); lastFlags = flags; lastComp = comp;
+  $("compliance").innerHTML = renderCompliance(comp);
+  setNode(3,"done"); $("m4").textContent = `${Math.round(performance.now()-t4)} ms`;
+  log(`Node 4 Compliance check: claims audit found ${comp.claims_audit.length} risky claims in brief (${comp.claims_audit.filter(a=>a.outcome.startsWith("Removed")).length} removed by agent)`);
+  log(`Node 4 Compliance check: ${comp.requires_review}; prohibited_hits=${comp.prohibited_hits.length}, implied_hits=${comp.implied_claim_hits.length}, gaps=${comp.gaps.length}`);
+
+  // Node 4b (v1.1)
+  await runGrounding(listing);
+
+  // Node 5
+  setNode(5,"run");
+  lastResult = { sku: payload.sku, product_name: payload.product_name, target_channel: payload.target_channel, listing,
+    prohibited_hits: comp.prohibited_hits, implied_claim_hits: comp.implied_claim_hits, gaps: comp.gaps,
+    removed_claims: listing.removed_claims || [], claims_audit: comp.claims_audit, legal_escalation: comp.legal_escalation, source_flags: {risky_terms_in_brief: flags.risky_terms_in_brief, incomplete_or_unverified_fields: flags.incomplete_or_unverified_fields, unsubstantiated_claims_in_brief: flags.unsubstantiated_claims_in_brief}, requires_review: comp.requires_review,
+    fact_grounding: grounding, required_fields_missing: flags.missing_required, intake_advisory: flags.intake_advisory, version: VERSION,
+    generated_at: new Date().toISOString(), run_id: runId };
+  $("final").textContent = JSON.stringify(lastResult, null, 2);
+  $("listing").innerHTML = renderListing(listing);
+  const blocked = comp.requires_review.startsWith("BLOCKED");
+  $("edit").disabled = false; $("reject").disabled = false;
+  $("decision").innerHTML = "";
+  legalLog.push({ run_id: runId, sku: payload.sku, product: payload.product_name, at: new Date().toISOString(), pass, status: "Pending review" });
+  saveLog(); updateGates(); renderLegal();
+  $("dl").disabled = false;
+  setNode(5,"done"); $("m5").textContent = `returned · ${now()}`;
+  log(`Node 5 Return result: sent to Stage 4 merchandiser review (${blocked ? "approval locked" : "awaiting decision"})`);
+  $("run").disabled = false; $("run").textContent = "Run workflow";
+}
+$("run").onclick = () => runWorkflow();
+
+function counts(){
+  const c = lastComp; if (!c) return null;
+  const rows = c.claims_audit.filter(a => !a.allowed);
+  const ds = rows.map(a => claimDecisions[a.claim_in_brief.toLowerCase()]);
+  const decided = ds.filter(Boolean).length;
+  const referred = ds.filter(d => d && d.decision === "referred");
+  const openRef = rows.filter(a => { const k = a.claim_in_brief.toLowerCase(); return claimDecisions[k]?.decision === "referred" && !legal.decisions[k]; });
+  const blocked = c.requires_review.startsWith("BLOCKED");
+  const refKeys = new Set(rows.filter(a => claimDecisions[a.claim_in_brief.toLowerCase()]?.decision === "referred").map(a => a.claim_in_brief.toLowerCase()));
+  const residual = c.prohibited_hits.filter(h => !refKeys.has(h.toLowerCase())).length + c.implied_claim_hits.filter(h => !refKeys.has(h.matched.toLowerCase().trim())).length;
+  const stillReferred = rows.filter(a => a.outcome === "STILL IN LISTING" && refKeys.has(a.claim_in_brief.toLowerCase())).map(a => a.claim_in_brief);
+  const unsupportedOpen = grounding && grounding.unsupported ? grounding.unsupported.filter(u => !groundDecisions[u.statement.toLowerCase()]).length : 0;
+  const groundingOk = !!(grounding && grounding.unsupported && !grounding.pending) && unsupportedOpen === 0;
+  const missingRequired = (lastFlags && lastFlags.missing_required) || [];
+  return { unsupportedOpen, groundingOk, groundingPending: !!(grounding && grounding.pending), groundingError: !!(grounding && grounding.error), missingRequired, hardBlocked: residual > 0, stillReferred, total: rows.length, decided, referred, openRef, blocked, escalated: c.legal_escalation, released: c.legal_released,
+    legalRequired: openRef.length > 0 && legal.status !== "released", involved: c.legal_involved || referred.length > 0 };
+}
+function updateGates(){
+  const k = counts(); if (!k){ $("gates").innerHTML = ""; return; }
+  const g = [
+    [!k.blocked, !k.blocked ? "No prohibited or implied claims in the listing" : !k.hardBlocked && k.stillReferred.length ? `“${k.stillReferred.join("”, “")}” still in the listing: waiting on Legal` : "Prohibited or implied claims are still in the listing"],
+    [k.decided === k.total, k.total ? `Every flagged claim has a decision (${k.decided} of ${k.total})` : "No flagged claims to decide"],
+    [k.openRef.length === 0, k.openRef.length ? `${k.openRef.length} claim(s) waiting on Legal` : "No claims waiting on Legal"],
+    [k.groundingOk, k.groundingPending || !grounding ? "Fact-grounding check running" : k.groundingError ? "Fact-grounding check did not complete" : k.unsupportedOpen ? `${k.unsupportedOpen} unsupported fact(s) in the draft (Node 4b)` : "Every listing fact traces to the brief (Node 4b)"],
+    [!k.missingRequired.length, k.missingRequired.length ? `Required Amazon fields missing: ${k.missingRequired.join(", ")}` : "Required Amazon fields present (dimensions, weight, material, origin)"],
+    [!k.legalRequired, legal.status === "released" ? `Legal decisions submitted (${legal.by}, ref ${legal.ref})` : k.openRef.length ? "Referrals must be decided by Legal" : k.escalated ? "Legal notified: unsubstantiated brief claims kept out of the listing" : "No Legal action needed"]
+  ];
+  $("gates").innerHTML = g.map(([ok,t]) => `<li><span class="${ok?"pass":"fail"}">${ok?"✓":"✗"}</span> ${esc(t)}</li>`).join("");
+  $("approve").disabled = !g.every(x => x[0]) || editing || legal.status === "pending";
+  $("hold").disabled = editing || k.hardBlocked || k.decided !== k.total || !k.legalRequired || legal.status === "pending" || legal.status === "returned";
+  $("reject").disabled = legal.status === "pending";
+  $("reviewNote").textContent = legal.status === "pending"
+      ? "Sent to Legal. Waiting for Priya / Sneha to decide in the Legal review panel below."
+    : legal.status === "returned"
+      ? "Legal returned this brief to merchandising. It cannot launch as it stands: fix the brief and resubmit."
+    : k.hardBlocked
+      ? "BLOCKED: the listing still contains prohibited wording. Edit the draft or reject it."
+    : k.missingRequired.length && k.decided === k.total && !k.legalRequired && !k.unsupportedOpen
+      ? `Approve is locked: the brief is missing required Amazon fields (${k.missingRequired.join(", ")}). Reject to return it to merchandising, or complete the brief and re-run.`
+    : k.unsupportedOpen && k.decided === k.total && !k.legalRequired
+      ? "Approve is locked: the draft states facts the brief does not support (Node 4b). Edit them out, or confirm each with a named source."
+    : k.decided !== k.total
+      ? "Decide each flagged claim in the Node 4 claims audit: confirm the removal, or refer soft claims to Legal with a reason."
+    : k.legalRequired
+      ? "You referred claims to Legal. Approve is locked: send them to Legal (Priya / Sneha), or reject the draft."
+    : legal.status === "released"
+      ? `Legal submitted its decisions${pass > 1 ? " and the listing was regenerated and re-checked" : ""}. Final approval is yours.`
+    : lastComp.requires_review.startsWith("FLAGGED")
+      ? "Checks passed with notes. Review the gaps and channel-rule results, then approve."
+      : "All checks passed. The draft still needs your approval before publishing.";
+}
+function logEntry(){ return lastResult ? legalLog.find(x => x.run_id === lastResult.run_id) : null; }
+function renderLegal(){
+  const k = counts(), el = $("legalNow");
+  if (!k){ el.innerHTML = '<span class="empty">The Legal view of the current run appears here after the workflow runs.</span>'; }
+  else if (!k.involved){
+    el.innerHTML = `<p><span class="pill ok">All clear: nothing requires Legal review</span></p><p>No prohibited, implied or unsubstantiated claims were found in the brief or the listing for <strong>${esc(lastResult.sku)}</strong> (${esc(lastResult.run_id)}, ${now()}).</p>`;
+  } else {
+    const rows = lastComp.claims_audit.map(a => { const key = a.claim_in_brief.toLowerCase(), d = claimDecisions[key], ld = legal.decisions[key];
+      let legalCell = "";
+      if (d && d.decision === "referred"){
+        legalCell = ld ? (ld.decision === "approved" ? `<span class="pass">Approved</span>` : `<span class="fail">Declined</span>`) + `<div class="small">${esc(ld.by)}${ld.note ? " · “"+esc(ld.note)+"”" : ""}</div>` + (legal.status === "pending" ? `<button data-lact="undo" data-k="${esc(key)}" style="margin-top:4px;padding:3px 8px;font-size:12px">Change</button>` : "")
+          : legal.status === "pending" ? `<div class="dec"><input placeholder="Note (optional)" data-lnote="${esc(key)}"><button class="btn-ok" data-lact="approve" data-k="${esc(key)}">Approve claim</button><button class="btn-rej" data-lact="decline" data-k="${esc(key)}">Decline</button></div>` : '<span class="small">Not yet sent</span>';
+      } else if (d) legalCell = '<span class="small">No action needed</span>';
+      return `<tr><td>${riskBadge(a.risk)}</td><td><span class="hit">${esc(a.claim_in_brief)}</span></td><td>${esc(a.type)}</td><td>${d ? (d.decision==="removed" ? '<span class="pass">Removal confirmed</span>' : `<span style="color:var(--flag);font-weight:700">Referred</span><div class="small">“${esc(d.reason)}”${d.evidence ? `<br>Evidence: ${esc(d.evidence)}` : ""}</div>`) + `<div class="small">${esc(d.by)}, ${esc(d.at.replace("T"," ").slice(0,16))}</div>` : '<span class="small">Awaiting merchandiser</span>'}</td><td>${legalCell}</td></tr>`; }).join("");
+    const openRef = k.openRef.length;
+    const pill = legal.status === "pending" ? '<span class="pill flag">Awaiting Legal decisions</span>' : legal.status === "released" ? `<span class="pill ok">Legal decisions submitted · ref ${esc(legal.ref)}</span>` : k.legalRequired ? '<span class="pill flag">Referrals waiting to be sent to Legal</span>' : '<span class="pill ok">Legal notified: no action needed</span>';
+    el.innerHTML = `<p>${pill} <span class="small">${esc(lastResult.sku)} · ${esc(lastResult.run_id)} · pass ${pass}</span></p>
+      ${lastFlags && lastFlags.unsubstantiated_claims_in_brief ? `<p class="note">FYI for Legal: the brief makes claims with no substantiation on file. ${lastComp.claims_audit.filter(a => !a.allowed).length} flagged claim(s) are kept out of the listing${k.referred.length ? `; ${k.referred.length} referred for your decision` : "; none referred"}.</p>` : ""}
+      <table><tr><th style="width:auto">Risk</th><th style="width:auto">Claim in brief</th><th style="width:auto">Type</th><th style="width:auto">Merchandiser</th><th style="width:auto">Legal decision</th></tr>${rows}</table>
+      ${legal.status === "pending" ? `<div class="review" style="margin-top:14px"><h3>Legal decisions</h3>
+        <div class="row"><label for="legalWho">Legal reviewer</label><input id="legalWho" value="${esc(legal.who || "Priya, Legal (AE)")}"></div>
+        <p class="note">${openRef ? `Decide the ${openRef} referred claim(s) above, then submit. You can change a decision until you submit.` : "Review your decisions, then submit. Approved claims are one-off exceptions for this SKU and brief version only; the listing is regenerated and re-checked."}</p>
+        <div class="row"><button class="btn-ok" data-lact="release" ${openRef ? "disabled" : ""}>Submit Legal decisions</button></div></div>` : ""}
+      ${legal.status === "released" ? `<p class="small" style="margin-top:8px">Submitted by ${esc(legal.by)} at ${esc((legal.at||"").replace("T"," ").slice(0,16))} · ref ${esc(legal.ref)}${allowed.size ? ` · one-off exceptions for ${esc(lastResult.sku)} (this brief version only): ${esc([...allowed].join(", "))}` : ""}</p>` : ""}`;
+  }
+  const bypass = legalLog.filter(x => x.legal_required && x.status.startsWith("Approved")).length;
+  $("legalLog").innerHTML = legalLog.length ? `<p>${bypass ? `<span class="pill block">${bypass} listing(s) approved while a Legal hold applied</span>` : '<span class="pill ok">✓ No listing was approved while a Legal hold applied</span>'}</p>
+    <table><tr><th style="width:auto">When</th><th style="width:auto">SKU</th><th style="width:auto">Pass</th><th style="width:auto">Claims flagged</th><th style="width:auto">Legal</th><th style="width:auto">Final decision</th><th style="width:auto">Details</th></tr>
+    ${legalLog.slice().reverse().map(x => `<tr><td>${esc((x.at||"").replace("T"," ").slice(0,16))}</td><td>${esc(x.sku)}</td><td>${x.pass || 1}</td><td>${x.claims_found ?? "–"}</td><td>${esc(x.legal || "–")}</td><td>${esc(x.status)}${x.by ? `<div class="small">${esc(x.by)}</div>` : ""}</td>
+      <td><details><summary>View</summary><div class="small">${esc(x.run_id)} · ${esc(x.product||"")}</div>${(x.decisions||[]).map(d => `<div class="small">${d.risk ? "["+esc(d.risk)+"] " : ""}${esc(d.claim)}: ${d.decision === "removed" ? "removal confirmed" : d.decision === "referred" ? "referred (“"+esc(d.reason)+"”)" + (d.legal ? ", Legal "+esc(d.legal) : "") : d.decision === "allowed" ? "Legal-approved, allowed" : "no decision"}</div>`).join("") || '<div class="small">No flagged claims</div>'}</details></td></tr>`).join("")}</table>`
+    : '<p class="empty">No runs recorded yet.</p>';
+}
+function snapshotDecisions(){
+  return lastComp ? lastComp.claims_audit.map(a => { const key = a.claim_in_brief.toLowerCase(), d = claimDecisions[key] || {}, ld = legal.decisions[key];
+    return { claim: a.claim_in_brief, risk: RISK_LABEL[a.risk], evidence: d.evidence, decision: a.allowed && !d.decision ? "allowed" : (d.decision || "none"), reason: d.reason, by: d.by, legal: ld ? ld.decision : undefined }; }) : [];
+}
+function updateEntry(fields){
+  const e = logEntry(), k = counts(); if (!e || !k) return;
+  Object.assign(e, { claims_found: lastComp.claims_audit.length, decisions: snapshotDecisions(),
+    legal: legal.status === "pending" ? "Sent, awaiting" : legal.status === "released" ? `Decided (${legal.by}, ${legal.ref})` : (k.involved ? "Notified" : "Not needed") }, fields);
+  saveLog();
+}
+$("compliance").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-act]"); if (!b || !lastComp || legal.status === "pending") return;
+  if (b.dataset.act === "confirmall"){
+    const who = $("reviewer").value || "Unnamed reviewer";
+    lastComp.claims_audit.forEach(x => { const k = x.claim_in_brief.toLowerCase(); if (x.outcome.startsWith("Removed") && !claimDecisions[k]) { claimDecisions[k] = {decision:"removed", by:who, at:new Date().toISOString(), pass}; log(`Stage 4: removal of “${x.claim_in_brief}” confirmed by ${who} (bulk)`); } });
+    $("compliance").innerHTML = renderCompliance(lastComp); updateGates(); renderLegal(); return;
+  }
+  const a = lastComp.claims_audit[+b.dataset.i]; const key = a.claim_in_brief.toLowerCase(); const who = $("reviewer").value || "Unnamed reviewer";
+  if (b.dataset.act === "confirm"){ claimDecisions[key] = {decision:"removed", by:who, at:new Date().toISOString(), pass}; log(`Stage 4: removal of “${a.claim_in_brief}” confirmed by ${who}`); }
+  else if (b.dataset.act === "refer"){
+    b.parentElement.innerHTML = `<input placeholder="Why should Legal look at this?" data-reason="${b.dataset.i}">${a.risk === 3 ? `<input placeholder="Evidence on file (required: study, certificate, document ref)" data-evidence="${b.dataset.i}">` : ""}<button data-act="send" data-i="${b.dataset.i}">Send to Legal</button>`;
+    document.querySelector(`[data-reason="${b.dataset.i}"]`)?.focus(); return;
+  }
+  else if (b.dataset.act === "send"){
+    const inp = document.querySelector(`[data-reason="${b.dataset.i}"]`); const r = (inp?.value || "").trim();
+    if (!r){ inp.placeholder = "A reason is required"; inp.focus(); return; }
+    const evInp = document.querySelector(`[data-evidence="${b.dataset.i}"]`), ev = (evInp?.value || "").trim();
+    if (a.risk === 3 && !ev){ evInp.placeholder = "High-risk claims need evidence on file before Legal will review"; evInp.focus(); return; }
+    claimDecisions[key] = {decision:"referred", reason:r, evidence: ev || undefined, risk: RISK_LABEL[a.risk], by:who, at:new Date().toISOString(), pass};
+    log(`Stage 4: “${a.claim_in_brief}” (${RISK_LABEL[a.risk]} risk) referred to Legal by ${who}: ${r}${ev ? ` · evidence: ${ev}` : ""}`);
+  }
+  $("compliance").innerHTML = renderCompliance(lastComp); updateGates(); renderLegal();
+});
+$("grounding").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-gact]"); if (!b || !lastResult) return;
+  if (b.dataset.gact === "retry"){ runGrounding(lastResult.listing); return; }
+  const u = grounding.unsupported[+b.dataset.i], inp = document.querySelector(`[data-gsrc="${b.dataset.i}"]`), src = (inp?.value || "").trim();
+  if (!src){ inp.placeholder = "Name the source (e.g. supplier spec sheet ref)"; inp.focus(); return; }
+  const who = $("reviewer").value || "Unnamed reviewer";
+  groundDecisions[u.statement.toLowerCase()] = {source: src, by: who, at: new Date().toISOString()};
+  log(`Stage 4: unsupported fact “${u.statement}” confirmed by ${who} with source: ${src}`);
+  lastResult.fact_grounding_decisions = groundDecisions; $("final").textContent = JSON.stringify(lastResult, null, 2);
+  renderGrounding(); updateGates();
+});
+$("legalNow").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-lact]"); if (!b || legal.status !== "pending") return;
+  const who = $("legalWho")?.value || "Legal"; legal.who = who;
+  const act = b.dataset.lact;
+  if (act === "undo"){ delete legal.decisions[b.dataset.k]; log(`Legal: decision on “${b.dataset.k}” reopened by ${who}`); }
+  else if (act === "approve" || act === "decline"){
+    const key = b.dataset.k, note = (document.querySelector(`[data-lnote="${CSS.escape(key)}"]`)?.value || "").trim();
+    legal.decisions[key] = {decision: act === "approve" ? "approved" : "declined", note, by: who, at: new Date().toISOString()};
+    log(`Legal: “${key}” ${act === "approve" ? "approved" : "declined"} by ${who}${note ? ` (${note})` : ""}`);
+  } else if (act === "return"){
+    Object.assign(legal, {status:"returned", by: who, at: new Date().toISOString()});
+    log(`Legal: brief ${lastResult.sku} returned to merchandising by ${who}`);
+    updateEntry({ status: "Returned to merchandising by Legal", by: who, legal_required: true });
+  } else if (act === "release"){
+    Object.assign(legal, {status:"released", by: who, at: new Date().toISOString(), ref: `LA-${lastResult.sku}-${Date.now().toString(36).toUpperCase()}`});
+    const approvedKeys = Object.entries(legal.decisions).filter(([,d]) => d.decision === "approved").map(([k]) => k);
+    approvedKeys.forEach(k => allowed.add(k));
+    Object.entries(legal.decisions).forEach(([k,d]) => { if (d.decision === "declined") { declined.add(k); claimDecisions[k] = {...claimDecisions[k], legal_declined: true}; } });
+    const declinedPresent = lastComp.claims_audit.filter(a => declined.has(a.claim_in_brief.toLowerCase()) && a.outcome === "STILL IN LISTING").map(a => a.claim_in_brief);
+    log(`Legal: decisions submitted for ${lastResult.sku} by ${who} (ref ${legal.ref})${approvedKeys.length ? `; one-off exceptions for this SKU and brief version: ${approvedKeys.join(", ")}` : "; no claims added back"}`);
+    const rerun = approvedKeys.length > 0 || declinedPresent.length > 0;
+    updateEntry({ status: rerun ? `Legal decisions submitted: re-run as pass ${pass+1}` : "Legal decisions submitted: back to merchandiser", by: who, legal_required: false });
+    if (rerun){
+      lastComp = complianceCheck(lastResult.listing, payload.target_market, lastFlags);
+      $("compliance").innerHTML = renderCompliance(lastComp); updateGates(); renderLegal();
+      log(`Re-running the workflow (pass ${pass+1})${approvedKeys.length ? ` with Legal-approved claims: ${approvedKeys.join(", ")}` : ""}${declinedPresent.length ? `; removing Legal-declined: ${declinedPresent.join(", ")}` : ""}`);
+      runWorkflow(); return;
+    }
+    lastComp = complianceCheck(lastResult.listing, payload.target_market, lastFlags);
+  }
+  $("compliance").innerHTML = renderCompliance(lastComp); updateGates(); renderLegal();
+});
+function decide(kind){
+  const who = $("reviewer").value || "Unnamed reviewer";
+  const msg = { approve:"Approved for publishing", hold:"Sent to Legal (Priya / Sneha)", reject:"Rejected, returned to merchandising", edited:"Edited and re-checked" }[kind];
+  $("decision").innerHTML = `<span class="pill ${kind==="reject"?"block":kind==="hold"?"flag":"ok"}">${esc(msg)}</span> <span style="color:var(--muted);font-size:13px">by ${esc(who)} at ${now()}</span>`;
+  log(`Stage 4 decision: ${msg} by ${who} (${lastResult?.run_id})`);
+  if (kind === "edited" || !lastResult) return;
+  const k = counts();
+  if (kind === "hold"){ legal = {status:"pending", decisions: legal.decisions || {}, who: legal.who, hash: legal.hash}; }
+  updateEntry({ status: msg, by: who, decided_at: new Date().toISOString(), legal_required: kind === "approve" ? k.legalRequired : k.legalRequired || kind === "hold" });
+  lastResult.stage4_decision = { decision: msg, by: who, at: new Date().toISOString(), claim_decisions: snapshotDecisions(), legal: {...legal} };
+  $("final").textContent = JSON.stringify(lastResult, null, 2);
+  $("compliance").innerHTML = renderCompliance(lastComp); updateGates(); renderLegal();
+}
+$("hold").onclick = () => decide("hold");
+$("clearLog").onclick = () => { legalLog = []; saveLog(); renderLegal(); log("Legal log cleared"); };
+$("approve").onclick = () => decide("approve");
+$("reject").onclick = () => decide("reject");
+$("edit").onclick = () => {
+  const body = $("listingBody"); if (!body) return;
+  if (!editing){
+    body.querySelectorAll("[data-f]").forEach(el => el.contentEditable = "true");
+    editing = true; $("edit").textContent = "Save edits and re-check"; updateGates();
+    log("Stage 4: reviewer started editing the draft");
+  } else {
+    const l = { ...lastResult.listing };
+    l.title = body.querySelector('[data-f="title"]').innerText.trim();
+    l.bullets = [...body.querySelectorAll('[data-f^="bullet"]')].map(el => el.innerText.trim());
+    l.description = body.querySelector('[data-f="description"]').innerText.trim();
+    body.querySelectorAll("[data-f]").forEach(el => el.contentEditable = "false");
+    editing = false; $("edit").textContent = "Edit draft";
+    const comp = complianceCheck(l, payload.target_market, lastFlags); lastComp = comp;
+    lastResult = { ...lastResult, legal_escalation: comp.legal_escalation, listing: l, prohibited_hits: comp.prohibited_hits, implied_claim_hits: comp.implied_claim_hits, requires_review: comp.requires_review, edited_by: $("reviewer").value, edited_at: new Date().toISOString() };
+    $("compliance").innerHTML = renderCompliance(comp);
+    $("final").textContent = JSON.stringify(lastResult, null, 2);
+    updateGates(); renderLegal();
+    log(`Stage 4: edits saved; compliance re-run: ${comp.requires_review}`);
+    decide("edited");
+    groundDecisions = {}; runGrounding(l);
+  }
+};
+
+const EXTRACT_PROMPT = `You extract a Kanvas & Co. product brief into a fixed JSON payload for a listing workflow.
+Copy the brief's wording VERBATIM into the matching field. Do NOT remove, soften, correct or judge any claim, even risky ones: a later compliance check needs to see exactly what the brief says.
+If a field is not in the brief, write "[Not in brief]". Combine sub-sections into one string per field.
+Default target_channel to "Amazon AE" and target_market to "AE" unless the brief states otherwise.
+Return ONLY a JSON object with exactly these keys:
+{"sku":"","product_name":"","category":"","target_channel":"","target_market":"","materials":"","specs":"","positioning":"","campaign_hook":"","key_selling_points":"","claims_substantiation":"","not_this":"","known_variations":"","compliance_signoff":""}
+
+BRIEF:
+`;
+async function fileToText(f){
+  const name = f.name.toLowerCase();
+  if (name.endsWith(".docx")) {
+    if (!window.mammoth) throw new Error("Word reader did not load. Save the brief as .txt or .pdf and upload that.");
+    const r = await mammoth.extractRawText({arrayBuffer: await f.arrayBuffer()}); return r.value;
+  }
+  if (name.endsWith(".pdf")) {
+    if (!window.pdfjsLib) throw new Error("PDF reader did not load. Save the brief as .txt and upload that.");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const pdf = await pdfjsLib.getDocument({data: new Uint8Array(await f.arrayBuffer())}).promise;
+    let out = ""; for (let i = 1; i <= pdf.numPages; i++){ const pg = await pdf.getPage(i); const c = await pg.getTextContent(); out += c.items.map(t=>t.str).join(" ") + "\n"; }
+    return out;
+  }
+  return await f.text();
+}
+$("payload").addEventListener("input", () => { try { JSON.parse($("payload").value); $("m1").textContent = "input payload (JSON)"; } catch(_){} });
+$("file").onchange = async (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  load({}, `${f.name} (reading…)`); $("payload").value = "Reading the brief and extracting fields… Run is unavailable until this finishes.";
+  ["run","loadGolden","loadEdge"].forEach(id => $(id).disabled = true); $("run").textContent = "Extracting…";
+  log(`Upload: ${f.name} received (${Math.round(f.size/1024)} KB)`);
+  try {
+    const text = await fileToText(f);
+    if (f.name.toLowerCase().endsWith(".json")) { const obj = JSON.parse(text); load(obj, f.name); log("Upload: JSON payload loaded as-is"); return; }
+    if (!text.trim()) throw new Error("No text found in the file. If it is a scanned PDF, upload a Word or text version.");
+    $("loaded").textContent = `${f.name}: extracting fields with Claude…`;
+    const sample = await samplePromise;
+    if (!sample) throw new Error("Field extraction needs this page opened from its claude.ai link.");
+    const obj = await sample.json(EXTRACT_PROMPT + text.slice(0, 30000), {cache:false});
+    load(obj, `${f.name} (fields extracted verbatim; check them, then run)`); markLoaded("upload");
+    log(`Upload: ${Object.keys(obj).length} fields extracted from ${f.name}`);
+  } catch(e){
+    $("loaded").innerHTML = `<span class="error">${esc(e.message || e.code || "Could not read the file")}</span>`;
+    log(`Upload error: ${e.message || e.code}`);
+  } finally { ev.target.value = ""; ["run","loadGolden","loadEdge"].forEach(id => $(id).disabled = false); $("run").textContent = "Run workflow"; }
+};
+
+$("dl").onclick = async () => {
+  const d = await downloadsPromise;
+  if (!d || !lastResult) { $("dl").disabled = true; return; }
+  const record = { version: VERSION, legal_log_entry: legalLog.find(x => x.run_id === lastResult.run_id), run: lastResult, input_payload: payload, system_prompt: SYSTEM_PROMPT, execution_log: [...$("log").children].map(x=>x.textContent) };
+  try { await d.save({ filename: `${lastResult.sku}_${lastResult.run_id}.json`, data: JSON.stringify(record, null, 2) }); log(`Run record downloaded for ${lastResult.run_id}`); }
+  catch(e){ log(`Download not completed (${e.code || "cancelled"})`); }
+};
+downloadsPromise.then(d => { if (!d) $("dl").style.display = "none"; });
+
+load(GOLDEN, "10_Sample_Product_Brief_FILLED (Mira Terracotta Planter Set)"); markLoaded("loadGolden");
+</script>
+</body>
+</html>
